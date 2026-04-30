@@ -1,0 +1,36 @@
+# Environment variables (passwords, secrets)
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# ML model checkpoints (too large for git)
+backend/ml/checkpoints/*.pth
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Docker volumes
+postgres_data/
+
+# Logs
+*.log
+tft_logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
