@@ -20,7 +20,7 @@ async def get_station_forecast(station_id: str, days_history: int = Query(14)):
         raise HTTPException(status_code=404, detail="No data available for this station")
         
     df["station_id"] = station_id
-    checkpoint_path = os.getenv("MODEL_CHECKPOINT_PATH", "ml/checkpoints/full_checkpoint2.pth")
+    checkpoint_path = os.getenv("MODEL_CHECKPOINT_PATH", "/app/ml/checkpoints/full_checkpoint2.pth")
     
     result = get_forecast(station_id, df, checkpoint_path)
     if result is None:
