@@ -73,6 +73,10 @@ def load_model(checkpoint_path: str) -> RobustTFT:
     _orig = torch.load
     try:
         torch.load = lambda f, *a, **kw: _orig(f, *a, **{**kw, "weights_only": False})
+        ckpt = torch.load(checkpoint_path, map_location="cpu")
+        if "pytorch-lightning_version" not in ckpt:
+            ckpt["pytorch-lightning_version"] = "1.9.5"
+            torch.save(ckpt, checkpoint_path)
         model = RobustTFT.load_from_checkpoint(checkpoint_path, map_location="cpu")
         torch.load = _orig
         

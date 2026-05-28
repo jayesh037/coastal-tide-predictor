@@ -1,119 +1,124 @@
-import React, { useState } from 'react';
-import StationPicker from './components/StationPicker';
+import React, { useState, useEffect } from 'react';
+import StationDropdown from './components/StationDropdown';
+import StationMap from './components/StationMap';
 import ForecastChart from './components/ForecastChart';
+import HistoryChart from './components/HistoryChart';
 import LiveFeed from './components/LiveFeed';
-import { fetchForecast, ForecastResponse } from './api/client';
+import { 
+  fetchStations, 
+  fetchForecast, 
+  fetchHistory,
+  ForecastResponse, 
+  ForecastHistoryItem,
+  StationProperties
+} from './api/client';
+import './App.css';
 
 export default function App() {
+  const [stations, setStations] = useState<StationProperties[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [selectedStationName, setSelectedStationName] = useState<string>('');
+  
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
-  const [loadingForecast, setLoadingForecast] = useState<boolean>(false);
+  const [history, setHistory] = useState<ForecastHistoryItem[]>([]);
+  
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchStations()
+      .then((data) => {
+        // Data comes as FeatureCollection
+        const props = data.features.map(f => f.properties);
+        setStations(props);
+      })
+      .catch(console.error);
+  }, []);
 
   const handleStationSelect = (id: string, name: string) => {
     setSelectedStationId(id);
     setSelectedStationName(name);
     setError(null);
-    setLoadingForecast(true);
-    fetchForecast(id)
-      .then((data) => {
-        setForecast(data);
-        setLoadingForecast(false);
+    setLoading(true);
+
+    Promise.all([
+      fetchForecast(id),
+      fetchHistory(id, 30)
+    ])
+      .then(([forecastData, historyData]) => {
+        setForecast(forecastData);
+        setHistory(historyData);
       })
       .catch((err) => {
-        setError(err.message);
-        setLoadingForecast(false);
+        setError(err.message || 'Failed to fetch data');
+      })
+      .finally(() => {
+        setLoading(false);
       });
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
+    <div className="app-container">
       {/* LEFT PANEL */}
-      <div
-        style={{
-          width: '35%',
-          minWidth: '320px',
-          background: '#0f172a',
-          color: 'white',
-          padding: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          boxSizing: 'border-box'
-        }}
-      >
+      <div className="sidebar">
         <h1 style={{ fontSize: '20px', margin: 0 }}>🌊 Coastal Tide Predictor</h1>
         <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 16px' }}>
           Powered by Temporal Fusion Transformer
         </p>
 
-        {selectedStationId && (
-          <div
-            style={{
-              background: '#1e293b',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '12px',
-            }}
-          >
-            <div style={{ fontWeight: 'bold', color: 'white' }}>{selectedStationName}</div>
-            <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
-              ID: {selectedStationId}
-            </div>
-          </div>
-        )}
+        <StationDropdown 
+          stations={stations} 
+          selectedId={selectedStationId} 
+          onSelect={handleStationSelect} 
+        />
 
-        <div style={{ flex: 1, minHeight: 0, borderRadius: '8px', overflow: 'hidden' }}>
-          <StationPicker onSelect={handleStationSelect} selectedId={selectedStationId} />
+        <div className="map-wrapper">
+          <StationMap 
+            stations={stations}
+            selectedStationId={selectedStationId}
+            onSelect={handleStationSelect}
+          />
         </div>
       </div>
 
       {/* RIGHT PANEL */}
-      <div
-        style={{
-          flex: 1,
-          background: '#f8fafc',
-          padding: '24px',
-          overflowY: 'auto',
-          boxSizing: 'border-box'
-        }}
-      >
+      <div className="main-content">
         {!selectedStationId ? (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <p style={{ color: '#94a3b8', fontSize: '18px' }}>Select a coastal station from the map</p>
+          <div className="empty-state">
+            <p>Select a coastal station from the map or dropdown to view its forecast and history</p>
           </div>
         ) : (
-          <>
-            {loadingForecast && (
-              <p style={{ color: '#64748b' }}>Loading forecast for {selectedStationName}...</p>
+          <div className="dashboard">
+            {loading && (
+              <div className="loading-state">Loading data for {selectedStationName}...</div>
             )}
             
             {error && (
-              <p style={{ color: '#dc2626' }}>Error: {error}</p>
+              <div className="error-state">Error: {error}</div>
             )}
             
-            {forecast && !loadingForecast && !error && (
+            {!loading && !error && (
               <>
-                <ForecastChart forecast={forecast} stationName={selectedStationName} />
-                
-                <div
-                  style={{
-                    background: 'white',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '10px 16px',
-                    margin: '16px 0',
-                    fontSize: '13px',
-                    color: '#475569',
-                  }}
-                >
-                  Model: Temporal Fusion Transformer &nbsp;|&nbsp; Horizon: 7 days &nbsp;|&nbsp; Quantiles: 10 / 25 / 50 / 75 / 90
+                <div className="dashboard-header">
+                  <h2>{selectedStationName}</h2>
+                  <span className="station-id">ID: {selectedStationId}</span>
                 </div>
-                
-                <LiveFeed stationId={selectedStationId} />
+
+                <div className="charts-container">
+                  <div className="chart-card">
+                    <ForecastChart forecast={forecast} stationName={selectedStationName} />
+                  </div>
+                  <div className="chart-card">
+                    <HistoryChart history={history} stationName={selectedStationName} />
+                  </div>
+                </div>
+
+                <div className="live-feed-container">
+                  <LiveFeed stationId={selectedStationId} />
+                </div>
               </>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

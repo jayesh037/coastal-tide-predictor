@@ -49,3 +49,25 @@ class LiveReading(BaseModel):
     station_id: str
     timestamp: datetime
     water_level: float
+
+class ForecastHistoryCreate(BaseModel):
+    station_id: str
+    timestamp: datetime
+    q10: float
+    q25: float
+    q50: float
+    q75: float
+    q90: float
+    actual_water_level: Optional[float] = None
+
+class ForecastHistoryResponse(BaseModel):
+    id: int
+    station_id: str
+    timestamp: datetime
+    q10: float
+    q25: float
+    q50: float
+    q75: float
+    q90: float
+    actual_water_level: Optional[float]
+    created_at: datetime

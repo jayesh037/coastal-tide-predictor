@@ -2,7 +2,7 @@
 # DATABASE_URL=postgresql://postgres:postgres@postgres:5432/tidedb
 # REDIS_URL=redis://redis:6379/0
 # NOAA_API_BASE=https://api.tidesandcurrents.noaa.gov/api/prod/datagetter
-# MODEL_CHECKPOINT_PATH=/app/models/full_checkpoint2.pth
+# MODEL_CHECKPOINT_PATH=/app/ml/checkpoints/full_checkpoint2.pth
 
 version: '3.8'
 
@@ -36,25 +36,12 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/tidedb
       - REDIS_URL=redis://redis:6379/0
-      - MODEL_CHECKPOINT_PATH=/app/models/full_checkpoint2.pth
+      - MODEL_CHECKPOINT_PATH=/app/ml/checkpoints/full_checkpoint2.pth
     depends_on:
       - postgres
       - redis
     volumes:
       - ./backend:/app
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-    container_name: tide_frontend
-    ports:
-      - "5173:80"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     restart: unless-stopped
 
   ingestion:

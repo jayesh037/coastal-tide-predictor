@@ -1,68 +1,67 @@
+import axios from 'axios';
+
 export interface StationProperties {
-  station_id: string
-  name: string
-  state: string | null
-  lat: number
-  lon: number
+  id: string; // Updated from station_id based on GET /api/stations response
+  name: string;
+  state: string | null;
+  lat: number;
+  lon: number;
+  timezone: string;
+  region: string;
 }
 
 export interface GeoJSONFeature {
-  type: "Feature"
-  geometry: { type: "Point"; coordinates: [number, number] }
-  properties: StationProperties
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: [number, number] };
+  properties: StationProperties;
 }
 
 export interface GeoJSONFeatureCollection {
-  type: "FeatureCollection"
-  features: GeoJSONFeature[]
-}
-
-export interface ObservationPoint {
-  timestamp: string
-  water_level: number
+  type: "FeatureCollection";
+  features: GeoJSONFeature[];
 }
 
 export interface ForecastResponse {
-  station_id: string
-  generated_at: string
-  horizon_hours: number
-  timestamps: string[]
-  q10: number[]
-  q25: number[]
-  q50: number[]
-  q75: number[]
-  q90: number[]
-  actuals: number[]
+  station_id: string;
+  generated_at: string;
+  horizon_hours: number;
+  timestamps: string[];
+  q10: number[];
+  q25: number[];
+  q50: number[];
+  q75: number[];
+  q90: number[];
+  actuals: number[];
 }
 
-export interface HistoryResponse {
-  station_id: string
-  days: number
-  observations: ObservationPoint[]
+export interface ForecastHistoryItem {
+  id: number;
+  station_id: string;
+  timestamp: string;
+  q10: number;
+  q25: number;
+  q50: number;
+  q75: number;
+  q90: number;
+  actual_water_level: number | null;
+  created_at: string;
 }
 
-const BASE_URL = '/api'
+const api = axios.create({
+  baseURL: '/api'
+});
 
 export async function fetchStations(): Promise<GeoJSONFeatureCollection> {
-  const response = await fetch(`${BASE_URL}/stations`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch stations: ${response.status} ${response.statusText}`)
-  }
-  return response.json()
+  const response = await api.get<GeoJSONFeatureCollection>('/stations');
+  return response.data;
 }
 
 export async function fetchForecast(stationId: string): Promise<ForecastResponse> {
-  const response = await fetch(`${BASE_URL}/forecast/${stationId}`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch forecast for station ${stationId}: ${response.status} ${response.statusText}`)
-  }
-  return response.json()
+  const response = await api.get<ForecastResponse>(`/forecast/${stationId}`);
+  return response.data;
 }
 
-export async function fetchHistory(stationId: string, days: number): Promise<HistoryResponse> {
-  const response = await fetch(`${BASE_URL}/history/${stationId}?days=${days}`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch history for station ${stationId}: ${response.status} ${response.statusText}`)
-  }
-  return response.json()
+export async function fetchHistory(stationId: string, days: number = 30): Promise<ForecastHistoryItem[]> {
+  const response = await api.get<ForecastHistoryItem[]>(`/history/${stationId}?days=${days}`);
+  return response.data;
 }
