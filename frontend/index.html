@@ -1,14 +1,109 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Coastal Tide Predictor</title>
-    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: sans-serif; background: #f8f9fa; color: #2c3e50; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px; }
+        h1 { font-size: 2em; margin-bottom: 10px; }
+        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        select { padding: 10px; font-size: 1em; border: 1px solid #ddd; border-radius: 5px; width: 100%; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f0f4f1; color: #2d6a4f; }
+        .loading { color: #999; }
+        .error { background: #fee; color: #c33; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌊 Coastal Tide Predictor</h1>
+            <p>Real-time tidal forecasting with deep learning</p>
+        </header>
+
+        <div class="card">
+            <h2>Select Station</h2>
+            <select id="stationSelect" onchange="onStationChange(this.value)">
+                <option value="">Loading stations...</option>
+            </select>
+        </div>
+
+        <div id="forecastContainer"></div>
+    </div>
+
+    <script>
+        const API = '/api';
+        let stations = [];
+
+        function onStationChange(stationId) {
+            console.log('Station changed to:', stationId);
+            if (stationId) {
+                loadForecast(stationId);
+            }
+        }
+
+        async function loadForecast(stationId) {
+            console.log('Loading forecast for station:', stationId);
+            document.getElementById('forecastContainer').innerHTML = '<div class="loading">Loading...</div>';
+            
+            try {
+                const url = API + '/forecast/' + stationId;
+                console.log('Fetching URL:', url);
+                
+                const res = await fetch(url);
+                const forecast = await res.json();
+                
+                if (!forecast.timestamps) {
+                    document.getElementById('forecastContainer').innerHTML = '<div class="error">No data</div>';
+                    return;
+                }
+
+                const station = stations.find(s => s.properties.station_id === stationId);
+                const stationName = station?.properties.name || 'Unknown';
+                
+                let html = `<div class="card"><h2>${stationName}</h2><p style="color:#666">Generated: ${new Date(forecast.generated_at).toLocaleString()}</p><table><thead><tr><th>Time</th><th>Q10</th><th>Q25</th><th>Q50</th><th>Q75</th><th>Q90</th><th>Actual</th></tr></thead><tbody>`;
+                
+                for (let i = 0; i < forecast.timestamps.length; i++) {
+                    html += `<tr><td>${new Date(forecast.timestamps[i]).toLocaleString()}</td><td>${(forecast.q10[i]||0).toFixed(3)}</td><td>${(forecast.q25[i]||0).toFixed(3)}</td><td><b>${(forecast.q50[i]||0).toFixed(3)}</b></td><td>${(forecast.q75[i]||0).toFixed(3)}</td><td>${(forecast.q90[i]||0).toFixed(3)}</td><td style="color:#d97706">${(forecast.actuals[i]||0).toFixed(3)}</td></tr>`;
+                }
+                
+                html += `</tbody></table></div>`;
+                document.getElementById('forecastContainer').innerHTML = html;
+            } catch (e) {
+                console.error('Error:', e);
+                document.getElementById('forecastContainer').innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+            }
+        }
+
+        async function init() {
+            try {
+                const res = await fetch(API + '/stations');
+                const data = await res.json();
+                stations = data.features || [];
+                console.log('Loaded stations:', stations.length);
+                
+                const select = document.getElementById('stationSelect');
+                select.innerHTML = stations.map(s => 
+                    `<option value="${s.properties.station_id}">${s.properties.name}</option>`
+                ).join('');
+                
+                if (stations.length > 0) {
+                    const firstId = stations[0].properties.station_id;
+                    select.value = firstId;
+                    loadForecast(firstId);
+                }
+            } catch (e) {
+                console.error('Init error:', e);
+                document.getElementById('forecastContainer').innerHTML = '<div class="error">Failed to load stations</div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
 </html>
