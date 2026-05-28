@@ -33,4 +33,34 @@ Thumbs.db
 
 # IDE
 .vscode/
+.idea/# Environment & Secrets
+.env
+.env.local
+docker-compose.local.yml
+docker-compose.override.yml
+
+# Logs
+logs/
+logs.txt
+*.log
+
+# Data
+*.pth
+*.ckpt
+checkpoint/
+ml/checkpoints/
+
+# Cache
+__pycache__/
+.pytest_cache/
+node_modules/
+.DS_Store
+
+# IDE
+.vscode/
 .idea/
+*.swp
+
+# Temp
+tmp/
+temp/
