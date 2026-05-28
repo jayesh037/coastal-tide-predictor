@@ -64,3 +64,4 @@ node_modules/
 # Temp
 tmp/
 temp/
+docker-compose.yml
