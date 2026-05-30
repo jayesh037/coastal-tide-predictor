@@ -4,106 +4,346 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Coastal Tide Predictor</title>
+    <script src="/chart.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: sans-serif; background: #f8f9fa; color: #2c3e50; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header { background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px; }
-        h1 { font-size: 2em; margin-bottom: 10px; }
-        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        select { padding: 10px; font-size: 1em; border: 1px solid #ddd; border-radius: 5px; width: 100%; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f0f4f1; color: #2d6a4f; }
-        .loading { color: #999; }
-        .error { background: #fee; color: #c33; padding: 10px; border-radius: 5px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f1; color: #2c3e50; }
+        header { background: linear-gradient(135deg, #1a472a, #2d6a4f); color: white; padding: 24px 40px; display: flex; align-items: center; gap: 16px; }
+        header h1 { font-size: 1.8em; }
+        header p { opacity: 0.85; font-size: 0.95em; margin-top: 4px; }
+        .main { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        .controls { background: white; border-radius: 12px; padding: 20px 25px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .controls label { font-weight: 600; color: #1a472a; }
+        select { padding: 10px 16px; border: 2px solid #d1e7d8; border-radius: 8px; font-size: 1em; color: #2c3e50; background: white; cursor: pointer; min-width: 220px; }
+        select:focus { outline: none; border-color: #2d6a4f; }
+        .badge { background: #e8f5e9; color: #2d6a4f; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }
+        .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .metric { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-top: 4px solid #2d6a4f; }
+        .metric-label { font-size: 0.82em; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .metric-value { font-size: 2em; font-weight: 700; color: #1a472a; }
+        .metric-sub { font-size: 0.8em; color: #888; margin-top: 4px; }
+        .metric.up .metric-value { color: #d97706; }
+        .metric.down .metric-value { color: #2d6a4f; }
+        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; }
+        .card h2 { font-size: 1.15em; color: #1a472a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .chart-wrap { position: relative; height: 320px; }
+        .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; font-size: 0.85em; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        th { padding: 10px 12px; background: #f0f4f1; color: #1a472a; text-align: left; font-weight: 600; border-bottom: 2px solid #d1e7d8; }
+        td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+        tr:hover td { background: #f9fafb; }
+        .q50 { font-weight: 700; color: #1a472a; }
+        .actual { color: #d97706; font-weight: 600; }
+        .future-row td { background: #f0f7f4; }
+        .future-row:hover td { background: #e8f5e9; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; }
+        .tag-future { background: #e8f5e9; color: #2d6a4f; }
+        .tag-past { background: #fef3c7; color: #92400e; }
+        .loading { text-align: center; padding: 60px; color: #999; font-size: 1.1em; }
+        .error { background: #fee; color: #c33; padding: 16px; border-radius: 8px; margin: 16px 0; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 900px) { .metrics { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; } }
+        @media (max-width: 600px) { .metrics { grid-template-columns: 1fr; } header { padding: 16px 20px; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🌊 Coastal Tide Predictor</h1>
-            <p>Real-time tidal forecasting with deep learning</p>
-        </header>
 
-        <div class="card">
-            <h2>Select Station</h2>
-            <select id="stationSelect" onchange="onStationChange(this.value)">
-                <option value="">Loading stations...</option>
-            </select>
-        </div>
+<header>
+    <div>🌊</div>
+    <div>
+        <h1>Coastal Tide Predictor</h1>
+        <p>Real-time tidal forecasting powered by Temporal Fusion Transformer</p>
+    </div>
+</header>
 
-        <div id="forecastContainer"></div>
+<div class="main">
+    <div class="controls">
+        <label>Station</label>
+        <select id="stationSelect" onchange="onStationChange(this.value)">
+            <option value="">Loading stations...</option>
+        </select>
+        <span class="badge" id="regionBadge"></span>
+        <span style="margin-left:auto;color:#888;font-size:0.85em" id="genTime"></span>
     </div>
 
-    <script>
-        const API = '/api';
-        let stations = [];
+    <div id="metricsRow" class="metrics"></div>
+    <div id="chartCard"></div>
+    <div class="grid2" id="grid2"></div>
+    <div id="tableCard"></div>
+    <div id="loadingDiv" class="loading">Loading forecast...</div>
+    <div id="errorDiv"></div>
+</div>
 
-        function onStationChange(stationId) {
-            console.log('Station changed to:', stationId);
-            if (stationId) {
-                loadForecast(stationId);
+<script>
+const API = '/api';
+let stations = [];
+let chartInstance = null;
+
+async function init() {
+    try {
+        const res = await fetch(API + '/stations');
+        const data = await res.json();
+        stations = data.features || [];
+        const select = document.getElementById('stationSelect');
+        select.innerHTML = stations.map(s =>
+            `<option value="${s.properties.station_id}">${s.properties.name} (${s.properties.state})</option>`
+        ).join('');
+        if (stations.length > 0) {
+            select.value = stations[0].properties.station_id;
+            loadForecast(stations[0].properties.station_id);
+        }
+    } catch (e) {
+        showError('Failed to load stations: ' + e.message);
+    }
+}
+
+function onStationChange(id) { if (id) loadForecast(id); }
+
+async function loadForecast(stationId) {
+    document.getElementById('loadingDiv').style.display = 'block';
+    document.getElementById('errorDiv').innerHTML = '';
+    document.getElementById('metricsRow').innerHTML = '';
+    document.getElementById('chartCard').innerHTML = '';
+    document.getElementById('grid2').innerHTML = '';
+    document.getElementById('tableCard').innerHTML = '';
+
+    try {
+        const res = await fetch(API + '/forecast/' + stationId);
+        const f = await res.json();
+        if (f.detail) { showError(f.detail); return; }
+
+        document.getElementById('loadingDiv').style.display = 'none';
+
+        const station = stations.find(s => s.properties.station_id === stationId);
+        const stationName = station?.properties.name || 'Unknown';
+        const region = station?.properties.region || '';
+
+        document.getElementById('regionBadge').textContent = region;
+        document.getElementById('genTime').textContent = 'Generated: ' + new Date(f.generated_at).toLocaleString();
+
+        // Metrics
+        const latestQ50 = f.q50[0] || 0;
+        const latestQ10 = f.q10[0] || 0;
+        const latestQ90 = f.q90[0] || 0;
+        const uncertainty = latestQ90 - latestQ10;
+        const lastActual = f.past_actuals[f.past_actuals.length - 1] || 0;
+        const prevActual = f.past_actuals[f.past_actuals.length - 2] || 0;
+        const trend = lastActual > prevActual ? '↑ Rising' : '↓ Falling';
+        const trendClass = lastActual > prevActual ? 'up' : 'down';
+
+        // Find next high/low tide in future predictions
+        const maxIdx = f.q50.indexOf(Math.max(...f.q50));
+        const minIdx = f.q50.indexOf(Math.min(...f.q50));
+        const nextHighTime = f.future_timestamps[maxIdx] ? new Date(f.future_timestamps[maxIdx]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : 'N/A';
+        const nextLowTime = f.future_timestamps[minIdx] ? new Date(f.future_timestamps[minIdx]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : 'N/A';
+
+        document.getElementById('metricsRow').innerHTML = `
+            <div class="metric">
+                <div class="metric-label">Current Level (Actual)</div>
+                <div class="metric-value">${lastActual.toFixed(3)}m</div>
+                <div class="metric-sub">Latest observed</div>
+            </div>
+            <div class="metric ${trendClass}">
+                <div class="metric-label">Tide Trend</div>
+                <div class="metric-value" style="font-size:1.4em">${trend}</div>
+                <div class="metric-sub">vs previous hour</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Next High Tide</div>
+                <div class="metric-value" style="font-size:1.2em">${nextHighTime}</div>
+                <div class="metric-sub">${(Math.max(...f.q50)).toFixed(3)}m predicted</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Forecast Uncertainty</div>
+                <div class="metric-value">${uncertainty.toFixed(3)}m</div>
+                <div class="metric-sub">Q90 - Q10 band</div>
+            </div>
+        `;
+
+        // Chart
+        document.getElementById('chartCard').innerHTML = `
+            <div class="card">
+                <h2>📈 48h History + 24h Forecast — ${stationName}</h2>
+                <div class="chart-wrap"><canvas id="tideChart"></canvas></div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div> Observed (past)</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#2d6a4f"></div> Predicted median (Q50)</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#bbf7d0;border:1px solid #86efac"></div> Q10–Q90 band</div>
+                </div>
+            </div>
+        `;
+
+        renderChart(f);
+
+        // Stats cards
+        const avgPast = (f.past_actuals.reduce((a,b)=>a+b,0)/f.past_actuals.length).toFixed(3);
+        const maxPast = Math.max(...f.past_actuals).toFixed(3);
+        const minPast = Math.min(...f.past_actuals).toFixed(3);
+        const avgFuture = (f.q50.reduce((a,b)=>a+b,0)/f.q50.length).toFixed(3);
+
+        document.getElementById('grid2').innerHTML = `
+            <div class="card">
+                <h2>📊 Past 48h Summary</h2>
+                <table>
+                    <tr><th>Metric</th><th>Value</th></tr>
+                    <tr><td>Average water level</td><td>${avgPast} m</td></tr>
+                    <tr><td>Maximum water level</td><td>${maxPast} m</td></tr>
+                    <tr><td>Minimum water level</td><td>${minPast} m</td></tr>
+                    <tr><td>Data points</td><td>${f.past_actuals.length} hrs</td></tr>
+                    <tr><td>Trend</td><td>${trend}</td></tr>
+                </table>
+            </div>
+            <div class="card">
+                <h2>🔮 24h Forecast Summary</h2>
+                <table>
+                    <tr><th>Metric</th><th>Value</th></tr>
+                    <tr><td>Average predicted level</td><td>${avgFuture} m</td></tr>
+                    <tr><td>Peak tide (Q50)</td><td>${Math.max(...f.q50).toFixed(3)} m at ${nextHighTime}</td></tr>
+                    <tr><td>Low tide (Q50)</td><td>${Math.min(...f.q50).toFixed(3)} m at ${nextLowTime}</td></tr>
+                    <tr><td>Max uncertainty</td><td>${Math.max(...f.q90.map((v,i)=>v-f.q10[i])).toFixed(3)} m</td></tr>
+                    <tr><td>Model</td><td>TFT · RMSE 0.008m</td></tr>
+                </table>
+            </div>
+        `;
+
+        // Detailed table
+        let tableRows = '';
+        f.future_timestamps.forEach((t, i) => {
+            tableRows += `
+                <tr class="future-row">
+                    <td>${new Date(t).toLocaleString()}</td>
+                    <td><span class="tag tag-future">Forecast</span></td>
+                    <td>${f.q10[i].toFixed(3)}</td>
+                    <td>${f.q25[i].toFixed(3)}</td>
+                    <td class="q50">${f.q50[i].toFixed(3)}</td>
+                    <td>${f.q75[i].toFixed(3)}</td>
+                    <td>${f.q90[i].toFixed(3)}</td>
+                    <td>—</td>
+                </tr>`;
+        });
+        f.past_timestamps.slice(-12).reverse().forEach((t, i) => {
+            const idx = f.past_timestamps.length - 1 - i;
+            tableRows += `
+                <tr>
+                    <td>${new Date(t).toLocaleString()}</td>
+                    <td><span class="tag tag-past">Observed</span></td>
+                    <td colspan="5" style="color:#888">—</td>
+                    <td class="actual">${f.past_actuals[idx].toFixed(3)}</td>
+                </tr>`;
+        });
+
+        document.getElementById('tableCard').innerHTML = `
+            <div class="card">
+                <h2>📋 Detailed Data — Future Forecast + Last 12h Observed</h2>
+                <div style="overflow-x:auto">
+                <table>
+                    <thead><tr>
+                        <th>Time</th><th>Type</th>
+                        <th>Q10</th><th>Q25</th><th>Q50 (Median)</th><th>Q75</th><th>Q90</th>
+                        <th>Actual</th>
+                    </tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+                </div>
+            </div>
+        `;
+
+    } catch (e) {
+        showError('Error loading forecast: ' + e.message);
+    }
+}
+
+function renderChart(f) {
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+    const pastLabels = f.past_timestamps.map(t => new Date(t).toLocaleTimeString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}));
+    const futureLabels = f.future_timestamps.map(t => new Date(t).toLocaleTimeString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}));
+    const allLabels = [...pastLabels, ...futureLabels];
+
+    const pastActualData = [...f.past_actuals, ...Array(f.future_timestamps.length).fill(null)];
+    const q50Data = [...Array(f.past_timestamps.length).fill(null), ...f.q50];
+    const q10Data = [...Array(f.past_timestamps.length).fill(null), ...f.q10];
+    const q90Data = [...Array(f.past_timestamps.length).fill(null), ...f.q90];
+
+    const ctx = document.getElementById('tideChart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: [
+                {
+                    label: 'Q90 band',
+                    data: q90Data,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(134,239,172,0.35)',
+                    fill: '+1',
+                    pointRadius: 0,
+                    tension: 0.3,
+                },
+                {
+                    label: 'Q10 band',
+                    data: q10Data,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(134,239,172,0.35)',
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.3,
+                },
+                {
+                    label: 'Predicted Q50',
+                    data: q50Data,
+                    borderColor: '#2d6a4f',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    tension: 0.3,
+                },
+                {
+                    label: 'Observed',
+                    data: pastActualData,
+                    borderColor: '#d97706',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 3],
+                    pointRadius: 0,
+                    tension: 0.3,
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.parsed.y !== null ? `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}m` : null
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { maxTicksLimit: 12, maxRotation: 0, font: { size: 11 } },
+                    grid: { color: '#f0f0f0' }
+                },
+                y: {
+                    title: { display: true, text: 'Water Level (m)' },
+                    grid: { color: '#f0f0f0' }
+                }
             }
         }
+    });
+}
 
-        async function loadForecast(stationId) {
-            console.log('Loading forecast for station:', stationId);
-            document.getElementById('forecastContainer').innerHTML = '<div class="loading">Loading...</div>';
-            
-            try {
-                const url = API + '/forecast/' + stationId;
-                console.log('Fetching URL:', url);
-                
-                const res = await fetch(url);
-                const forecast = await res.json();
-                
-                if (!forecast.timestamps) {
-                    document.getElementById('forecastContainer').innerHTML = '<div class="error">No data</div>';
-                    return;
-                }
+function showError(msg) {
+    document.getElementById('loadingDiv').style.display = 'none';
+    document.getElementById('errorDiv').innerHTML = `<div class="error">⚠️ ${msg}</div>`;
+}
 
-                const station = stations.find(s => s.properties.station_id === stationId);
-                const stationName = station?.properties.name || 'Unknown';
-                
-                let html = `<div class="card"><h2>${stationName}</h2><p style="color:#666">Generated: ${new Date(forecast.generated_at).toLocaleString()}</p><table><thead><tr><th>Time</th><th>Q10</th><th>Q25</th><th>Q50</th><th>Q75</th><th>Q90</th><th>Actual</th></tr></thead><tbody>`;
-                
-                for (let i = 0; i < forecast.timestamps.length; i++) {
-                    html += `<tr><td>${new Date(forecast.timestamps[i]).toLocaleString()}</td><td>${(forecast.q10[i]||0).toFixed(3)}</td><td>${(forecast.q25[i]||0).toFixed(3)}</td><td><b>${(forecast.q50[i]||0).toFixed(3)}</b></td><td>${(forecast.q75[i]||0).toFixed(3)}</td><td>${(forecast.q90[i]||0).toFixed(3)}</td><td style="color:#d97706">${(forecast.actuals[i]||0).toFixed(3)}</td></tr>`;
-                }
-                
-                html += `</tbody></table></div>`;
-                document.getElementById('forecastContainer').innerHTML = html;
-            } catch (e) {
-                console.error('Error:', e);
-                document.getElementById('forecastContainer').innerHTML = '<div class="error">Error: ' + e.message + '</div>';
-            }
-        }
-
-        async function init() {
-            try {
-                const res = await fetch(API + '/stations');
-                const data = await res.json();
-                stations = data.features || [];
-                console.log('Loaded stations:', stations.length);
-                
-                const select = document.getElementById('stationSelect');
-                select.innerHTML = stations.map(s => 
-                    `<option value="${s.properties.station_id}">${s.properties.name}</option>`
-                ).join('');
-                
-                if (stations.length > 0) {
-                    const firstId = stations[0].properties.station_id;
-                    select.value = firstId;
-                    loadForecast(firstId);
-                }
-            } catch (e) {
-                console.error('Init error:', e);
-                document.getElementById('forecastContainer').innerHTML = '<div class="error">Failed to load stations</div>';
-            }
-        }
-
-        init();
-    </script>
+init();
+</script>
 </body>
 </html>
